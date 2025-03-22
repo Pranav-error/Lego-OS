@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LegoOS - Modular Smartwatch with Real-time Sensors</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
+    <head>
+        <!-- Add this first -->
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+        
+        <!-- Existing meta tags -->
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>LegoOS - Modular Smartwatch</title>
+        
+        
+       
+    </head>
+    <style>
+        /* Global Styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            position: relative;
+            width: 340px;
+            margin: 20px auto;
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 20px; /* Changed from 50% to 20px for square shape */
+            box-shadow: 0px 0px 25px rgba(0, 0, 0, 0.3),
+                        inset 0px 0px 15px rgba(255, 255, 255, 0.5);
+            height: 340px; /* Ensures square shape */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .watch-band {
+            position: absolute;
+            width: 80px;
+            height: 100px;
+            background: linear-gradient(to bottom, #2d3746, #1a2130);
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: -1;
+        }
+        
+        .watch-band.top {
+            top: -50px;
+            border-radius: 0 0 15px 15px;
+        }
+        
+        .watch-band.bottom {
+            bottom: -50px;
+            border-radius: 15px 15px 0 0;
+        }
+        
+        .watch-bezel {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            bottom: 5px;
+            border-radius: 20px; /* Match container border-radius */
+            border: 8px solid #333;
+            pointer-events: none;
+            z-index: 2;
+        }
+        
+        .watch-screen {
+            background: white;
+            border-radius: 12px; /* Match container border-radius */
+            padding: 15px;
+            position: relative;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .header-content {
+            flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+            padding-bottom: 5px;
+            background: white;
+        }
+        
+        /* Make scrollable areas explicitly scrollable with visible scrollbars */
+        .scrollable-content, .dashboard-content {
+            overflow-y: auto !important;
+            max-height: 100%;
+            -webkit-overflow-scrolling: touch; /* For better mobile scrolling */
+            padding-right: 8px; /* Prevent content from touching scrollbar */
+            scrollbar-width: thin; /* Firefox */
+        }
+
+        /* Ensure content fills the container but doesn't overflow */
+        .watch-screen {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Ensure scroll containers take available space */
+        #sensorSetupView, #dashboardView, #realTimeView {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        /* Make scrollbars more visible */
+        .scrollable-content::-webkit-scrollbar, .dashboard-content::-webkit-scrollbar {
+            width: 6px !important;
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .scrollable-content::-webkit-scrollbar-thumb, .dashboard-content::-webkit-scrollbar-thumb {
+            background-color: rgba(13, 110, 253, 0.6) !important;
+            border-radius: 10px;
+        }
+
+        .scrollable-content::-webkit-scrollbar-thumb:hover, .dashboard-content::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(13, 110, 253, 0.8) !important;
+        }
+        
+        .scrollable-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 5px;
+            margin-right: -5px;
+            padding-bottom: 30px;
+            scrollbar-width: thin;
+            scrollbar-color: #0d6efd transparent;
+            z-index: 0;
+            mask-image: linear-gradient(to bottom, transparent, black 10px, black 90%, transparent);
+            -webkit-mask-image: linear-gradient(to bottom, transparent, black 10px, black 90%, transparent);
+        }
+        
+        /* Custom scrollbar */
+        .scrollable-content::-webkit-scrollbar {
+            width: 5px;
+        }
+        
+        .scrollable-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .scrollable-content::-webkit-scrollbar-thumb {
+            background-color: rgba(13, 110, 253, 0.5);
+            border-radius: 10px;
+        }
+        
+        h1 {
+            color: #0d6efd;
+            font-size: 20px;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        
+        .time-display {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        /* Sensor Toggle Styles */
+        .sensor-list {
+            margin: 10px 0;
+            text-align: left;
+        }
+        
+        .sensor-toggle {
+            display: flex;
+            align-items: center;
+            font-size: 15px;
+            padding: 6px;
+            margin-bottom: 5px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border-radius: 8px;
+        }
+        
+        .sensor-toggle:hover {
+            background: rgba(13, 110, 253, 0.1);
+        }
+        
+        input[type="checkbox"] {
+            margin-right: 10px;
+            transform: scale(1.1);
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        input[type="checkbox"]:checked {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            position: relative;
+        }
+        
+        input[type="checkbox"]:checked::after {
+            content: "✓";
+            color: white;
+            position: absolute;
+            left: 3px;
+            top: -1px;
+            font-size: 14px;
+        }
+        
+        /* Active Sensor Display */
+        .active-sensors {
+            margin-top: 5px;
+        }
+        
+        .active-sensors h2 {
+            font-size: 16px;
+            margin: 10px 0 5px 0;
+            color: #555;
+        }
+        
+        #sensorDisplay {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 5px;
+            min-height: 30px;
+        }
+        
+        .sensor-chip {
+            background: #0d6efd;
+            color: white;
+            padding: 6px 12px;
+            margin: 4px;
+            border-radius: 15px;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .sensor-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .watch-controls {
+            position: absolute;
+            right: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 3;
+        }
+        
+        .watch-button {
+            width: 10px;
+            height: 25px;
+            background: #333;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .battery-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 12px;
+            color: #555;
+            z-index: 3;
+        }
+        
+        
+        
+        .sensor-icon {
+            margin-right: 5px;
+            display: inline-block;
+            width: 18px;
+            text-align: center;
+        }
+        
+        /* Scrolling notification styles */
+        .notification-scroll {
+            overflow: hidden;
+            position: relative;
+            height: 30px;
+            background-color: #f0f0f0;
+            border-radius: 15px;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .notification-text {
+            white-space: nowrap;
+            position: absolute;
+            display: inline-block;
+            color: #ff3b30;
+            font-weight: bold;
+            font-size: 14px;
+            animation: scrollText 10s linear infinite;
+            padding: 5px 0;
+        }
+        
+        @keyframes scrollText {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+        
+        /* Additional content for scrolling demo */
+        .sensor-metrics {
+            margin-top: 20px;
+            text-align: left;
+        }
+        
+        .sensor-metrics h3 {
+            font-size: 14px;
+            margin: 5px 0;
+            color: #444;
+        }
+        
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        
+        .scroll-indicator {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30px;
+            height: 10px;
+            border-radius: 5px;
+            background-color: rgba(13, 110, 253, 0.2);
+            z-index: 3;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .scroll-indicator::after {
+            content: "";
+            width: 15px;
+            height: 4px;
+            border-radius: 2px;
+            background-color: rgba(13, 110, 253, 0.6);
+        }
+        
+        /* Done Button */
+        .done-button {
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        .done-button:hover {
+            background-color: #0b5ed7;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Health Dashboard View */
+        .dashboard-view {
+            display: none;
+            height: 100%;
+        }
+        
+        .real-time-view {
+            display: none;
+            height: 100%;
+        }
+        
+        .sensor-setup-view {
+            display: block;
+            height: 100%;
+        }
+        
+        .dashboard-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 5px;
+            margin-right: -5px;
+            padding-bottom: 30px;
+            scrollbar-width: thin;
+            scrollbar-color: #0d6efd transparent;
+            z-index: 0;
+            mask-image: linear-gradient(to bottom, transparent, black 10px, black 90%, transparent);
+            -webkit-mask-image: linear-gradient(to bottom, transparent, black 10px, black 90%, transparent);
+        }
+        
+        .health-status {
+            margin-top: 10px;
+            text-align: left;
+        }
+        
+        .health-status-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .status-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            color: white;
+        }
+        
+        .green {
+            background-color: #28a745;
+        }
+        
+        .yellow {
+            background-color: #ffc107;
+        }
+        
+        .red {
+            background-color: #dc3545;
+        }
+        
+        .status-text {
+            font-size: 14px;
+            flex-grow: 1;
+        }
+        
+        .status-value {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+       /* Add these CSS modifications */
+.recommendation-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 8px;
+    background-color: rgba(13, 110, 253, 0.05);
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.recommendation-icon {
+    font-size: 18px;
+    margin-right: 8px;
+    min-width: 24px;
+    text-align: center;
+}
+
+.recommendation-text {
+    font-size: 13px;
+    line-height: 1.4;
+    color: #333;
+}
+/* Adjust dashboard content spacing */
+.dashboard-content {
+    padding-bottom: 15px;
+}
+
+.health-status {
+    margin: 10px 0;
+}
+        
+        .alert-pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .mini-chart {
+            height: 40px;
+            margin: 10px 0;
+            position: relative;
+        }
+        
+        .chart-bar {
+            display: inline-block;
+            width: 6px;
+            margin-right: 2px;
+            background-color: rgba(13, 110, 253, 0.7);
+            position: absolute;
+            bottom: 0;
+            border-radius: 2px 2px 0 0;
+        }
+        
+        .back-button {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 10;
+            color: #0d6efd;
+            background-color: rgba(13, 110, 253, 0.1);
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .back-button:hover {
+            background-color: rgba(13, 110, 253, 0.2);
+        }
+
+        /* Live data styles */
+        .live-data-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.3s ease;
+        }
+
+        .live-data-item:last-child {
+            border-bottom: none;
+        }
+
+        .live-data-item.updated {
+            background-color: rgba(13, 110, 253, 0.1);
+            animation: highlight 2s ease;
+        }
+
+        @keyframes highlight {
+            0% { background-color: rgba(13, 110, 253, 0.3); }
+            100% { background-color: rgba(13, 110, 253, 0); }
+        }
+
+        .live-data-label {
+            font-weight: 500;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+
+        .live-data-value {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            justify-content: center;
+            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+
+        .tab-button {
+            background-color: #f0f0f0;
+            border: none;
+            padding: 5px 12px;
+            margin: 0 5px;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-button.active {
+            background-color: #0d6efd;
+            color: white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .connection-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 10px;
+            display: inline-block;
+            margin-bottom: 5px;
+        }
+
+        .connection-status.connected {
+            background-color: rgba(40, 167, 69, 0.2);
+            color: #28a745;
+        }
+
+        .connection-status.disconnected {
+            background-color: rgba(220, 53, 69, 0.2);
+            color: #dc3545;
+        }
+
+        .connection-status.connecting {
+            background-color: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+        }
+        /* Modern Sensor Chips */
+.sensor-chip {
+    background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+    box-shadow: 0 3px 8px rgba(13, 110, 253, 0.2);
+}
+
+/* Holographic Effects */
+.watch-bezel {
+    border: 2px solid;
+    border-image: linear-gradient(45deg, #0d6efd, transparent) 1;
+    box-shadow: 0 0 15px rgba(13, 110, 253, 0.1);
+}
+
+/* Enhanced Live Data View */
+@keyframes highlight {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+/* Modern Scrollbars */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="watch-band top"></div>
+        <div class="watch-band bottom"></div>
+        <div class="watch-bezel"></div>
+        <div class="watch-screen">
+            <div class="battery-indicator">85%</div>
+            <div class="watch-controls">
+                <div class="watch-button"></div>
+                <div class="watch-button"></div>
+            </div>
+            
+            <!-- Sensor Setup View -->
+            <div id="sensorSetupView" class="sensor-setup-view">
+                <div class="header-content">
+                    <h1>LegoOS Watch</h1>
+                    <div class="time-display" id="timeDisplay">10:45</div>
+                </div>
+                
+                <div class="scrollable-content">
+                    <div class="sensor-list">
+                        <label class="sensor-toggle">
+                            <input type="checkbox" id="tempSensor"> <span class="sensor-icon">🌡</span> Temperature
+                        </label>
+                        <label class="sensor-toggle">
+                            <input type="checkbox" id="heartSensor"> <span class="sensor-icon">❤</span> Heart Rate
+                        </label>
+                        <label class="sensor-toggle">
+                            <input type="checkbox" id="uvSensor"> <span class="sensor-icon">☀</span> UV Sensor
+                        </label>
+                        <label class="sensor-toggle">
+                            <input type="checkbox" id="stepSensor"> <span class="sensor-icon">👣</span> Step Counter
+                        </label>
+                        <label class="sensor-toggle">
+                            <input type="checkbox" id="sleepSensor"> <span class="sensor-icon">💤</span> Sleep Tracker
+                        </label>
+                        <label class="sensor-toggle">
+                            <input type="checkbox" id="oxygenSensor"> <span class="sensor-icon">🫁</span> Oxygen
+                        </label>
+                        <label class="sensor-toggle">
+                            <input type="checkbox" id="stressSensor"> <span class="sensor-icon">😌</span> Stress Level
+                        </label>
+                        <label class="sensor-toggle">
+                            <input type="checkbox" id="postureSensor"> <span class="sensor-icon">🧍</span> Posture
+                        </label>
+                        <label class="sensor-toggle">
+                            <input type="checkbox" id="hydrationSensor"> <span class="sensor-icon">💧</span> Hydration
+                        </label>
+                        <label class="sensor-toggle">
+                            <input type="checkbox" id="bpSensor"> <span class="sensor-icon">🩸</span> Blood Pressure
+                        </label>
+                        <label class="sensor-toggle">
+                            <input type="checkbox" id="glucoseSensor"> <span class="sensor-icon">🍬</span> Glucose Level
+                        </label>
+                        <label class="sensor-toggle">
+                            <input type="checkbox" id="airQualitySensor"> <span class="sensor-icon">🌬️</span> Air Quality
+                        </label>
+                    </div>
+                    
+                    <div class="active-sensors">
+                        <h2>Active Modules:</h2>
+                        <div id="sensorDisplay"></div>
+                        <div class="notification-scroll" id="notificationScroll">
+                            <div class="notification-text">⚠ No active sensors detected! Please activate at least one sensor module ⚠</div>
+                        </div>
+                    </div>
+                    
+                    <button id="doneButton" class="done-button">Connect Sensors</button>
+                    
+                    <div class="sensor-metrics">
+                        <h3>Today's Metrics</h3>
+                        <div class="metric-item">
+                            <span>Battery Usage:</span>
+                            <span>15%</span>
+                        </div>
+                        <div class="metric-item">
+                            <span>Active Time:</span>
+                            <span>12h 30m</span>
+                        </div>
+                        <div class="metric-item">
+                            <span>Data Storage:</span>
+                            <span>421 KB</span>
+                        </div>
+                        <div class="metric-item">
+                            <span>Processing Power:</span>
+                            <span>Low</span>
+                        </div>
+                        <div class="metric-item">
+                            <span>Next Sync:</span>
+                            <span>22:00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Health Dashboard View -->
+            <div id="dashboardView" class="dashboard-view">
+                <div class="back-button" id="backButtonDashboard">←</div>
+                <div class="header-content">
+                    <h1>Health Dashboard</h1>
+                    <div class="time-display" id="dashboardTimeDisplay">10:45</div>
+
+                    <div class="tab-buttons">
+                        <button class="tab-button active" id="summaryTab">Summary</button>
+                        <button class="tab-button" id="liveDataTab">Live Data</button>
+                    </div>
+                </div>
+                
+                <div class="dashboard-content" id="summaryContent">
+                    <div class="health-status" id="healthStatusContainer">
+                        <!-- Health status items will be populated dynamically based on active sensors -->
+                    </div>
+                    
+                    <div class="mini-chart" id="activityChart">
+                        <!-- Chart bars will be dynamically generated -->
+                    </div>
+                    
+                    <div class="recommendation-list" id="recommendationsList">
+                        <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 15px;">Recommendations</h3>
+                        <!-- Recommendations will be populated dynamically based on active sensors -->
+                    </div>
+                </div>
+                
+                
+            </div>
+
+            <!-- Real-time Sensor View -->
+            <di id="realTimeView" class="real-time-view">
+                <div class="back-button" id="backButtonRealTime">←</div>
+                <div class="header-content">
+                    <h1>Real-time Sensors</h1>
+                    <div class="time-display" id="realTimeDisplay">10:45</div>
+                    <div id="connectionStatus" class="connection-status connecting">Connecting...</div>
+                </div>
+                
+                <div class="dashboard-content" id="liveSensorContainer">
+                    <!-- Real-time sensor data will be populated dynamically based on active sensors -->
+                </div>
+                
+                
+            
+            
+            
+           
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Update time
+            function updateTime() {
+                const now = new Date();
+                let hours = now.getHours();
+                let minutes = now.getMinutes();
+                
+                // Format time with leading zeros
+                hours = hours < 10 ? '0' + hours : hours;
+                minutes = minutes < 10 ? '0' + minutes : minutes;
+                
+                const timeString = hours + ':' + minutes;
+                document.getElementById('timeDisplay').textContent = timeString;
+                
+                if (document.getElementById('dashboardTimeDisplay')) {
+                    document.getElementById('dashboardTimeDisplay').textContent = timeString;
+                }
+                
+                if (document.getElementById('realTimeDisplay')) {
+                    document.getElementById('realTimeDisplay').textContent = timeString;
+                }
+            }
+            
+            // Update time immediately and then every minute
+            updateTime();
+            setInterval(updateTime, 60000);
+            
+            const sensors = {
+                "tempSensor": { name: "Temperature", icon: "🌡", data: ["36.5°C", "36.7°C", "36.4°C", "36.6°C"], status: "green", displayName: "Body Temp" },
+                "heartSensor": { name: "Heart Rate", icon: "❤", data: ["68 bpm", "72 bpm", "75 bpm", "78 bpm", "70 bpm"], status: "green", displayName: "Heart Rate" },
+                "uvSensor": { name: "UV Level", icon: "☀", data: ["Low (2)", "Moderate (4)", "High (6)", "Very High (8)"], status: "yellow", displayName: "UV Level" },
+                "stepSensor": { name: "Steps", icon: "👣", data: ["3,245", "3,268", "3,275", "3,290"], status: "green", displayName: "Daily Steps" },
+                "sleepSensor": { name: "Sleep", icon: "💤", data: ["6h 30m", "7h 10m", "5h 45m", "6h 55m"], status: "yellow", displayName: "Sleep Quality" },
+                "oxygenSensor": { name: "Oxygen", icon: "🫁", data: ["98%", "97%", "99%", "96%"], status: "green", displayName: "Blood Oxygen" },
+                "stressSensor": { name: "Stress", icon: "😌", data: ["Low", "Moderate", "High", "Low"], status: "yellow", displayName: "Stress Level" },
+                "postureSensor": { name: "Posture", icon: "🧍", data: ["Good", "Poor", "Slouching", "Good"], status: "red", displayName: "Posture" },
+                "hydrationSensor": { name: "Hydration", icon: "💧", data: ["62%", "65%", "68%", "70%"], status: "yellow", displayName: "Hydration" },
+                "bpSensor": { name: "Blood Pressure", icon: "🩸", data: ["119/78", "122/80", "118/76", "120/78"], status: "green", displayName: "Blood Pressure" },
+                "glucoseSensor": { name: "Glucose", icon: "🍬", data: ["98 mg/dL", "102 mg/dL", "95 mg/dL", "100 mg/dL"], status: "green", displayName: "Glucose Level" },
+                "airQualitySensor": { name: "Air Quality", icon: "🌬️", data: ["Good", "Moderate", "Good", "Fair"], status: "yellow", displayName: "Air Quality" }
+            };
+            
+            // Store active sensors
+            let activeSensorIds = [];
+            
+            // Recommendations based on sensors
+           // Enhanced recommendations system with combined sensor recommendations
+const recommendations = {
+    // Individual sensor recommendations
+    "postureSensor": { icon: "🧍", text: "Straighten your back now. You've been slouching for 35 minutes." },
+    "hydrationSensor": { icon: "💧", text: "Drink 250ml of water. Last hydration was 2 hours ago." },
+    "stepSensor": { icon: "👣", text: "Take a 5-minute walk break. You've been sitting for 95 minutes." },
+    "stressSensor": { icon: "😌", text: "Take a 2-minute deep breathing break to reduce stress levels." },
+    "sleepSensor": { icon: "🌙", text: "Try to get to bed by 10:30 PM to improve sleep quality." },
+    "uvSensor": { icon: "☀", text: "Apply sunscreen. UV levels are high in your current location." },
+    "airQualitySensor": { icon: "🌬️", text: "Consider using an air purifier. Current air quality is moderate." },
+    "heartSensor": { icon: "❤️", text: "Your heart rate is elevated. Take a moment to rest and breathe deeply." },
+    "oxygenSensor": { icon: "🫁", text: "Your blood oxygen is optimal. Maintain good ventilation in your space." },
+    "tempSensor": { icon: "🌡️", text: "Your body temperature is slightly elevated. Stay hydrated and monitor for changes." },
+    "bpSensor": { icon: "🩸", text: "Blood pressure within normal range. Continue your regular exercise routine." },
+    "glucoseSensor": { icon: "🍬", text: "Glucose levels are stable. Consider having your next meal within 2 hours." },
+    
+    // Combined sensor recommendations
+    "heartSensor+stressSensor": { icon: "❤️😌", text: "Your elevated heart rate correlates with high stress. Try the guided breathing exercise." },
+    "heartSensor+stepSensor": { icon: "❤️👣", text: "Heart rate optimal after recent activity. You're in a good cardio training zone." },
+    "hydrationSensor+tempSensor": { icon: "💧🌡️", text: "Body temperature rising with low hydration. Drink water immediately." },
+    "postureSensor+stressSensor": { icon: "🧍😌", text: "Poor posture may be contributing to stress levels. Adjust position and take a deep breath." },
+    "sleepSensor+stressSensor": { icon: "💤😌", text: "Sleep deficit detected with elevated stress. Consider a 20-minute power nap." },
+    "oxygenSensor+airQualitySensor": { icon: "🫁🌬️", text: "Oxygen levels affected by air quality. Consider moving to a better ventilated area." },
+    "stepSensor+glucoseSensor": { icon: "👣🍬", text: "Low step count with glucose fluctuation. A 10-minute walk would help stabilize levels." },
+    "uvSensor+hydrationSensor": { icon: "☀️💧", text: "High UV exposure with dehydration risk. Seek shade and increase water intake." },
+    "bpSensor+heartSensor": { icon: "🩸❤️", text: "Blood pressure and heart rate patterns suggest monitoring throughout the day." },
+    "postureSensor+sleepSensor": { icon: "🧍💤", text: "Poor posture may be affecting sleep quality. Try sleeping with a proper neck pillow." },
+    "stepSensor+postureSensor": { icon: "👣🧍", text: "Low activity with poor posture. Set a reminder to stand and stretch every 30 minutes." },
+    "glucoseSensor+hydrationSensor": { icon: "🍬💧", text: "Glucose trending up with low hydration. Drink water before your next meal." },
+    
+    // Three sensor combinations for even more specific recommendations
+    "heartSensor+stressSensor+sleepSensor": { icon: "❤️😌💤", text: "High stress affecting heart rate and sleep quality. Try meditation before bed." },
+    "stepSensor+hydrationSensor+tempSensor": { icon: "👣💧🌡️", text: "Activity level, hydration, and temperature indicate risk of overheating. Take a break." },
+    "postureSensor+stressSensor+oxygenSensor": { icon: "🧍😌🫁", text: "Poor posture restricting breathing, increasing stress. Sit up straight and breathe deeply." },
+    "glucoseSensor+stepSensor+sleepSensor": { icon: "🍬👣💤", text: "Sleep deficit with low activity affecting glucose. Short walk and early bedtime recommended." }
+};
+
+// Update the health dashboard function to handle combination recommendations
+function updateHealthDashboard() {
+    const healthStatusContainer = document.getElementById("healthStatusContainer");
+    const recommendationsList = document.getElementById("recommendationsList");
+    
+    // Clear current displays
+    healthStatusContainer.innerHTML = "";
+    recommendationsList.innerHTML = `<h3 style="margin-top: 0; margin-bottom: 10px; font-size: 15px;">Recommendations</h3>`;
+    
+    // Add health status for each active sensor
+    activeSensorIds.forEach(sensorId => {
+        const sensor = sensors[sensorId];
+        
+        const statusItem = document.createElement("div");
+        statusItem.className = "health-status-item";
+        
+        statusItem.innerHTML = `
+            <div class="status-icon ${sensor.status}">${sensor.status === "green" ? "✓" : sensor.status === "yellow" ? "!" : "×"}</div>
+            <div class="status-text">${sensor.displayName}</div>
+            <div class="status-value">${sensor.data[Math.floor(Math.random() * sensor.data.length)]}</div>
+        `;
+        
+        healthStatusContainer.appendChild(statusItem);
+    });
+    
+    // Check for sensor combinations first
+    let recommendationsAdded = 0;
+    const maxRecommendations = 4; // Limit recommendations to avoid overcrowding
+    
+    // Try three-sensor combinations first (more specific)
+    if (recommendationsAdded < maxRecommendations) {
+        for (let i = 0; i < activeSensorIds.length; i++) {
+            for (let j = i + 1; j < activeSensorIds.length; j++) {
+                for (let k = j + 1; k < activeSensorIds.length; k++) {
+                    // Create all possible combinations of this three-sensor set
+                    const combos = [
+                        `${activeSensorIds[i]}+${activeSensorIds[j]}+${activeSensorIds[k]}`,
+                        `${activeSensorIds[i]}+${activeSensorIds[k]}+${activeSensorIds[j]}`,
+                        `${activeSensorIds[j]}+${activeSensorIds[i]}+${activeSensorIds[k]}`,
+                        `${activeSensorIds[j]}+${activeSensorIds[k]}+${activeSensorIds[i]}`,
+                        `${activeSensorIds[k]}+${activeSensorIds[i]}+${activeSensorIds[j]}`,
+                        `${activeSensorIds[k]}+${activeSensorIds[j]}+${activeSensorIds[i]}`
+                    ];
+                    
+                    // Check each combination
+                    for (const combo of combos) {
+                        if (recommendations[combo] && recommendationsAdded < maxRecommendations) {
+                            addRecommendation(recommendations[combo]);
+                            recommendationsAdded++;
+                            break; // Only add one recommendation per three-sensor set
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Try two-sensor combinations
+    if (recommendationsAdded < maxRecommendations) {
+        for (let i = 0; i < activeSensorIds.length; i++) {
+            for (let j = i + 1; j < activeSensorIds.length; j++) {
+                const combo1 = `${activeSensorIds[i]}+${activeSensorIds[j]}`;
+                const combo2 = `${activeSensorIds[j]}+${activeSensorIds[i]}`;
+                
+                if (recommendations[combo1] && recommendationsAdded < maxRecommendations) {
+                    addRecommendation(recommendations[combo1]);
+                    recommendationsAdded++;
+                } else if (recommendations[combo2] && recommendationsAdded < maxRecommendations) {
+                    addRecommendation(recommendations[combo2]);
+                    recommendationsAdded++;
+                }
+            }
+        }
+    }
+    
+    // Finally, add individual sensor recommendations if we still have space
+    if (recommendationsAdded < maxRecommendations) {
+        // Prioritize sensors with non-green status
+        const prioritySensors = activeSensorIds.filter(id => sensors[id].status !== "green");
+        const remainingSensors = activeSensorIds.filter(id => sensors[id].status === "green");
+        
+        // Combine and process all sensors
+        const orderedSensors = [...prioritySensors, ...remainingSensors];
+        
+        for (const sensorId of orderedSensors) {
+            if (recommendations[sensorId] && recommendationsAdded < maxRecommendations) {
+                addRecommendation(recommendations[sensorId]);
+                recommendationsAdded++;
+            }
+        }
+    }
+    
+    // If no recommendations were added (should be rare), add a general one
+    if (recommendationsAdded === 0) {
+        addRecommendation({
+            icon: "👍", 
+            text: "All systems nominal. Continue your healthy routine and stay hydrated."
+        });
+    }
+    
+    // Helper function to add a recommendation to the list
+    function addRecommendation(rec) {
+        const recItem = document.createElement("div");
+        recItem.className = "recommendation-item";
+        recItem.innerHTML = `
+            <div class="recommendation-icon">${rec.icon}</div>
+            <div class="recommendation-text">${rec.text}</div>
+        `;
+        recommendationsList.appendChild(recItem);
+    }
+    
+    // Generate activity chart
+    generateActivityChart();
+}
+            function updateActiveSensors() {
+                const sensorDisplay = document.getElementById("sensorDisplay");
+                const notificationScroll = document.getElementById("notificationScroll");
+                const doneButton = document.getElementById("doneButton");
+                
+                // Clear current display
+                sensorDisplay.innerHTML = "";
+                
+                // Reset active sensors list
+                activeSensorIds = [];
+                
+                // Check each sensor
+                for (const sensorId in sensors) {
+                    const checkbox = document.getElementById(sensorId);
+                    if (checkbox && checkbox.checked) {
+                        const sensor = sensors[sensorId];
+                        activeSensorIds.push(sensorId);
+                        
+                        // Create a chip for the sensor
+                        const chip = document.createElement("div");
+                        chip.className = "sensor-chip";
+                        chip.innerHTML = `${sensor.icon} ${sensor.name}`;
+                        sensorDisplay.appendChild(chip);
+                    }
+                }
+                
+                // Show notification if no sensors are active
+                if (activeSensorIds.length === 0) {
+                    notificationScroll.style.display = "block";
+                    doneButton.disabled = true;
+                } else {
+                    notificationScroll.style.display = "none";
+                    doneButton.disabled = false;
+                }
+            }
+            
+            // Add event listeners to all sensor checkboxes
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener("change", updateActiveSensors);
+            });
+            
+            // Initialize sensor display
+            updateActiveSensors();
+            
+            // Handle Done button click
+            document.getElementById("doneButton").addEventListener("click", function() {
+                if (activeSensorIds.length > 0) {
+                    // Hide sensor setup view
+                    document.getElementById("sensorSetupView").style.display = "none";
+                    
+                    // Choose which view to show based on current tab
+                    if (document.getElementById("summaryTab").classList.contains("active")) {
+                        document.getElementById("dashboardView").style.display = "block";
+                        updateHealthDashboard();
+                    } else {
+                        document.getElementById("realTimeView").style.display = "block";
+                        setupRealTimeData();
+                    }
+                }
+            });
+            
+            // Handle back buttons
+            document.getElementById("backButtonDashboard").addEventListener("click", function() {
+                document.getElementById("dashboardView").style.display = "none";
+                document.getElementById("sensorSetupView").style.display = "block";
+            });
+            
+            document.getElementById("backButtonRealTime").addEventListener("click", function() {
+                document.getElementById("realTimeView").style.display = "none";
+                document.getElementById("sensorSetupView").style.display = "block";
+            });
+            
+            // Tab buttons functionality
+            document.getElementById("summaryTab").addEventListener("click", function() {
+                this.classList.add("active");
+                document.getElementById("liveDataTab").classList.remove("active");
+                
+                // If we're already in dashboard view, update content
+                if (document.getElementById("dashboardView").style.display === "block") {
+                    document.getElementById("dashboardView").style.display = "block";
+                    document.getElementById("realTimeView").style.display = "none";
+                }
+            });
+            
+            document.getElementById("liveDataTab").addEventListener("click", function() {
+                this.classList.add("active");
+                document.getElementById("summaryTab").classList.remove("active");
+                
+                // If we're already in dashboard view, switch to real-time view
+                if (document.getElementById("dashboardView").style.display === "block") {
+                    document.getElementById("dashboardView").style.display = "none";
+                    document.getElementById("realTimeView").style.display = "block";
+                    setupRealTimeData();
+                }
+            });
+            
+            function updateHealthDashboard() {
+                const healthStatusContainer = document.getElementById("healthStatusContainer");
+                const recommendationsList = document.getElementById("recommendationsList");
+                
+                // Clear current displays
+                healthStatusContainer.innerHTML = "";
+                recommendationsList.innerHTML = `<h3 style="margin-top: 0; margin-bottom: 10px; font-size: 15px;">Recommendations</h3>`;
+                
+                // Add health status for each active sensor
+                activeSensorIds.forEach(sensorId => {
+                    const sensor = sensors[sensorId];
+                    
+                    const statusItem = document.createElement("div");
+                    statusItem.className = "health-status-item";
+                    
+                    statusItem.innerHTML = `
+                        <div class="status-icon ${sensor.status}">${sensor.status === "green" ? "✓" : sensor.status === "yellow" ? "!" : "×"}</div>
+                        <div class="status-text">${sensor.displayName}</div>
+                        <div class="status-value">${sensor.data[Math.floor(Math.random() * sensor.data.length)]}</div>
+                    `;
+                    
+                    healthStatusContainer.appendChild(statusItem);
+                    
+                    // Add recommendation if available for this sensor
+                    if (recommendations[sensorId]) {
+                        const rec = recommendations[sensorId];
+                        const recItem = document.createElement("div");
+                        recItem.className = "recommendation-item";
+                        recItem.innerHTML = `
+                            <div class="recommendation-icon">${rec.icon}</div>
+                            <div class="recommendation-text">${rec.text}</div>
+                        `;
+                        recommendationsList.appendChild(recItem);
+                    }
+                });
+                
+                // Generate activity chart
+                generateActivityChart();
+            }
+            
+            function generateActivityChart() {
+                const chartContainer = document.getElementById("activityChart");
+                chartContainer.innerHTML = "";
+                
+                // Create random chart data
+                const chartData = [];
+                for (let i = 0; i < 24; i++) {
+                    chartData.push(Math.floor(Math.random() * 40));
+                }
+                
+                // Create bars
+                chartData.forEach((value, index) => {
+                    const bar = document.createElement("div");
+                    bar.className = "chart-bar";
+                    bar.style.height = value + "px";
+                    bar.style.left = (index * 8) + "px";
+                    chartContainer.appendChild(bar);
+                });
+            }
+            
+            function setupRealTimeData() {
+                const liveSensorContainer = document.getElementById("liveSensorContainer");
+                liveSensorContainer.innerHTML = "";
+                
+                // Simulate connecting to sensors
+                document.getElementById("connectionStatus").className = "connection-status connecting";
+                document.getElementById("connectionStatus").textContent = "Connecting...";
+                
+                setTimeout(() => {
+                    document.getElementById("connectionStatus").className = "connection-status connected";
+                    document.getElementById("connectionStatus").textContent = "Connected";
+                    
+                    // Create live data items for each active sensor
+                    activeSensorIds.forEach(sensorId => {
+                        const sensor = sensors[sensorId];
+                        const liveItem = document.createElement("div");
+                        liveItem.className = "live-data-item";
+                        liveItem.id = `live-${sensorId}`;
+                        
+                        liveItem.innerHTML = `
+                            <div class="live-data-label">
+                                <span class="sensor-icon">${sensor.icon}</span> ${sensor.displayName}
+                            </div>
+                            <div class="live-data-value" id="value-${sensorId}">
+                                ${sensor.data[0]}
+                            </div>
+                        `;
+                        
+                        liveSensorContainer.appendChild(liveItem);
+                    });
+                    
+                    // Start real-time updates
+                    startRealTimeUpdates();
+                }, 2000);
+            }
+            
+            // Simulate real-time data updates
+            function startRealTimeUpdates() {
+                // Update each active sensor at random intervals
+                activeSensorIds.forEach(sensorId => {
+                    const updateInterval = Math.floor(Math.random() * 3000) + 2000; // 2-5 seconds
+                    
+                    setInterval(() => {
+                        updateSensorValue(sensorId);
+                    }, updateInterval);
+                });
+            }
+            
+            function updateSensorValue(sensorId) {
+                const valueElement = document.getElementById(`value-${sensorId}`);
+                const liveItem = document.getElementById(`live-${sensorId}`);
+                
+                if (valueElement && liveItem) {
+                    // Get random data value
+                    const newValue = sensors[sensorId].data[Math.floor(Math.random() * sensors[sensorId].data.length)];
+                    valueElement.textContent = newValue;
+                    
+                    // Add highlight animation
+                    liveItem.classList.add("updated");
+                    setTimeout(() => {
+                        liveItem.classList.remove("updated");
+                    }, 2000);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
